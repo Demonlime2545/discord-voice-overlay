@@ -156,15 +156,32 @@ const listeningGuilds = new Set();
 function setupSpeakingListener(connection) {
     try {
         const guildId = connection.joinConfig?.guildId || connection.guildId;
-        if (!guildId || listeningGuilds.has(guildId)) return;
-        listeningGuilds.add(guildId);
+        if (!guildId) return;
 
+        // ลบ check listeningGuilds เพื่อให้ listener attach ทุกครั้ง
         const receiver = connection.receiver;
-        receiver.speaking.on('start', userId => broadcast({ id: userId, status: 'speaking' }));
-        receiver.speaking.on('end', userId => broadcast({ id: userId, status: 'not-speaking' }));
+
+        // ลบ listener เก่า ถ้ามี
+        receiver.speaking.removeAllListeners('start');
+        receiver.speaking.removeAllListeners('end');
+
+        // attach ใหม่
+        receiver.speaking.on('start', userId => {
+            if (userId === BOT_ID) return; // อย่า detect ตัวเอง
+            broadcast({ id: userId, status: 'speaking' });
+        });
+
+        receiver.speaking.on('end', userId => {
+            if (userId === BOT_ID) return;
+            broadcast({ id: userId, status: 'not-speaking' });
+        });
+
         console.log(`[VOICE] Listening speaking events for guild ${guildId}`);
-    } catch (e) { console.error('setupSpeakingListener error', e); }
+    } catch (e) {
+        console.error('setupSpeakingListener error', e);
+    }
 }
+
 
 // ============================
 // Track presence
@@ -192,6 +209,7 @@ client.on('voiceStateUpdate', async (oldState, newState) => {
     }
 
     try {
+        // ให้ Bot join room ทุกครั้งที่คนเข้ามา
         const connection = await ensureBotInVoice(newState.channel);
         setupSpeakingListener(connection);
     } catch (e) { console.error(e); }
