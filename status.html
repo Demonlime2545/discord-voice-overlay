@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>User Status Overlay</title>
+<style>
+body {
+    font-family: 'Segoe UI', Arial, sans-serif;
+    background: #0b0b0b;
+    color: #fff;
+    padding: 30px;
+    max-width: 1000px;
+    margin: auto;
+}
+h1 {
+    color: #00ffff;
+    text-align: center;
+    margin-bottom: 25px;
+    font-size: 2.4em;
+    text-shadow: 0 0 12px #00ffff;
+}
+
+.status-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 20px;
+    margin-bottom: 30px;
+}
+
+.status-item {
+    background: #1a1a1a;
+    border: 2px solid #222;
+    border-radius: 14px;
+    padding: 15px;
+    text-align: center;
+    transition: all 0.25s ease;
+}
+.status-item:hover {
+    border-color: #00ffff;
+    transform: translateY(-6px);
+    box-shadow: 0 0 16px rgba(0,255,255,0.3);
+}
+
+.status-item img {
+    width: 100%;
+    max-height: 160px;
+    object-fit: contain;
+    border-radius: 10px;
+    background: #000;
+    margin-bottom: 10px;
+}
+
+label {
+    color: #00ffff;
+    display: block;
+    font-size: 14px;
+    margin-top: 8px;
+}
+
+.button-group {
+    display: flex;
+    gap: 10px;
+    margin-top: 12px;
+}
+
+button {
+    padding: 10px;
+    flex: 1;
+    border-radius: 10px;
+    border: none;
+    cursor: pointer;
+    font-weight: 700;
+    font-size: 14px;
+    transition: all 0.2s ease;
+}
+
+button:hover {
+    filter: brightness(1.1);
+}
+
+.delete-btn {
+    background: linear-gradient(135deg,#ff4d4d,#ff1a1a);
+    color: #fff;
+}
+
+.upload-btn {
+    background: linear-gradient(135deg,#00ffcc,#00ffff);
+    color: #000;
+}
+
+#generate-btn {
+    display: block;
+    margin: 0 auto 20px auto;
+    padding: 12px 25px;
+    font-size: 16px;
+    border-radius: 12px;
+    background: linear-gradient(135deg,#00ffcc,#00ffff);
+    border: none;
+    cursor: pointer;
+    font-weight: 700;
+    transition: all 0.2s ease;
+}
+#generate-btn:hover { filter: brightness(1.1); }
+
+#overlay-link {
+    text-align: center;
+    color: #00ffff;
+    word-break: break-word;
+    margin-top: 15px;
+}
+
+#overlay-link a {
+    color: #00ffff;
+    text-decoration: underline;
+}
+
+.small {
+    font-size: 12px;
+    color: #9fd;
+    margin-top: 6px;
+}
+</style>
+</head>
+<body>
+<h1>User Status Overlay</h1>
+
+<div class="status-grid">
+    <div class="status-item" data-status="speaking">
+        <h3>🟢 Speaking</h3>
+        <img id="preview-speaking" src="icons/speaking.png" alt="Preview">
+        <label>Upload: <input type="file" data-status="speaking" class="avatar-upload" accept="image/*"></label>
+        <div class="button-group">
+            <button class="delete-btn" data-status="speaking">🗑️ Delete</button>
+        </div>
+        <div id="msg-speaking" class="small"></div>
+    </div>
+
+    <div class="status-item" data-status="not-speaking">
+        <h3>⚪ Not Speaking</h3>
+        <img id="preview-not-speaking" src="icons/not-speaking.png" alt="Preview">
+        <label>Upload: <input type="file" data-status="not-speaking" class="avatar-upload" accept="image/*"></label>
+        <div class="button-group">
+            <button class="delete-btn" data-status="not-speaking">🗑️ Delete</button>
+        </div>
+        <div id="msg-not-speaking" class="small"></div>
+    </div>
+
+    <div class="status-item" data-status="mic-off">
+        <h3>🔴 Mic Off</h3>
+        <img id="preview-mic-off" src="icons/mic-off.png" alt="Preview">
+        <label>Upload: <input type="file" data-status="mic-off" class="avatar-upload" accept="image/*"></label>
+        <div class="button-group">
+            <button class="delete-btn" data-status="mic-off">🗑️ Delete</button>
+        </div>
+        <div id="msg-mic-off" class="small"></div>
+    </div>
+
+    <div class="status-item" data-status="headphones">
+        <h3>🎧 Headphones</h3>
+        <img id="preview-headphones" src="icons/headphones.png" alt="Preview">
+        <label>Upload: <input type="file" data-status="headphones" class="avatar-upload" accept="image/*"></label>
+        <div class="button-group">
+            <button class="delete-btn" data-status="headphones">🗑️ Delete</button>
+        </div>
+        <div id="msg-headphones" class="small"></div>
+    </div>
+</div>
+
+<button id="generate-btn">🔗 Generate Overlay URL</button>
+<div id="overlay-link"></div>
+
+<script>
+// JS upload/delete/overlay logic (เหมือนเดิม)
+const urlParams = new URLSearchParams(window.location.search);
+const userId = urlParams.get('userId') || 'defaultUser';
+const statuses = ['speaking','not-speaking','mic-off','headphones'];
+
+async function loadAvatarsFromServer() {
+    try {
+        const res = await fetch(`/avatars/${userId}`);
+        if (!res.ok) throw new Error('no avatars');
+        const json = await res.json();
+        statuses.forEach(s => {
+            const el = document.getElementById(`preview-${s}`);
+            if (json[s]) el.src = json[s];
+        });
+    } catch (e) { console.warn('avatar fetch fail', e); }
+}
+
+document.querySelectorAll('.avatar-upload').forEach(input => {
+    input.addEventListener('change', async () => {
+        const status = input.dataset.status;
+        const file = input.files[0];
+        const msg = document.getElementById(`msg-${status}`);
+        if (!file) return;
+        msg.textContent = 'Uploading...';
+        const fd = new FormData();
+        fd.append('avatar', file);
+        try {
+            const resp = await fetch(`/upload-avatar?userId=${encodeURIComponent(userId)}&status=${encodeURIComponent(status)}`, { method:'POST', body:fd });
+            const data = await resp.json();
+            if (data.url) { document.getElementById(`preview-${status}`).src = data.url; msg.textContent='Uploaded'; setTimeout(()=>msg.textContent='',1500); }
+            else msg.textContent='Upload failed';
+        } catch(e){ console.error(e); msg.textContent='Upload error'; }
+    });
+});
+
+document.querySelectorAll('.delete-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+        const status = btn.dataset.status;
+        const msg = document.getElementById(`msg-${status}`);
+        if (!confirm('Are you sure you want to delete this image?')) return;
+        msg.textContent='Deleting...';
+        try {
+            const resp = await fetch(`/delete-avatar?userId=${encodeURIComponent(userId)}&status=${encodeURIComponent(status)}`, { method:'DELETE' });
+            const data = await resp.json();
+            if (data.success) { document.getElementById(`preview-${status}`).src=`icons/${status}.png`; msg.textContent='Deleted'; setTimeout(()=>msg.textContent='',1500); }
+            else msg.textContent='Delete failed';
+        } catch(e){ console.error(e); msg.textContent='Delete error'; }
+    });
+});
+
+document.getElementById('generate-btn').addEventListener('click', () => {
+    const url = `${window.location.origin}/ontop.html?userId=${encodeURIComponent(userId)}`;
+    const linkDiv = document.getElementById('overlay-link');
+    linkDiv.innerHTML=`<p>Overlay URL: <a href="${url}" target="_blank">${url}</a></p><p class="small">Open this no Stream Browser Source</p>`;
+    try{ navigator.clipboard.writeText(url); }catch(e){}
+    alert('Overlay URL copied:\n'+url);
+});
+
+window.addEventListener('load', loadAvatarsFromServer);
+</script>
+</body>
+</html>

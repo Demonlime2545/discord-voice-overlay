@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Discord Overlay</title>
+<style>
+body {
+    margin:0;
+    padding:0;
+    background:transparent;
+    display:flex;
+    justify-content:center;
+    align-items:flex-end; /* ติดด้านล่าง */
+    height:100vh;
+}
+img {
+    max-width: 110vw;    
+    max-height: 110vh;   
+    width: auto;
+    height: auto;
+    object-fit: contain;
+    transition: opacity 0.3s ease; /* เพิ่มความสมูท */
+    opacity: 1;
+}
+.hidden { opacity: 0; }
+</style>
+</head>
+<body>
+<img id="status-avatar" src="" alt="Overlay">
+
+<script>
+const urlParams = new URLSearchParams(window.location.search);
+const userId = urlParams.get('userId') || "defaultUser";
+
+const defaultAvatars = {
+    speaking: 'icons/speaking.png',
+    'not-speaking': 'icons/not-speaking.png',
+    'mic-off': 'icons/mic-off.png',
+    headphones: 'icons/headphones.png'
+};
+
+let avatars = Object.assign({}, defaultAvatars);
+
+async function loadAvatarsFromServer() {
+    try {
+        const res = await fetch(`/avatars/${encodeURIComponent(userId)}`);
+        if (!res.ok) throw new Error('no server avatars');
+        const json = await res.json();
+        avatars = Object.assign({}, avatars, json);
+    } catch (e) {
+        const saved = localStorage.getItem(`userAvatars_${userId}`);
+        if (saved) {
+            try {
+                const parsed = JSON.parse(saved);
+                avatars = Object.assign({}, avatars, parsed);
+            } catch (err) {}
+        }
+    }
+}
+
+function mapStatus(status) {
+    if (status === 'speaking') return 'speaking';
+    if (status === 'mic-off') return 'mic-off';
+    if (status === 'headphones') return 'headphones';
+    return 'not-speaking';
+}
+
+const img = document.getElementById('status-avatar');
+
+(async function init(){
+    await loadAvatarsFromServer();
+
+    // preload images
+    const preloaded = {};
+    Object.keys(avatars).forEach(k => {
+        preloaded[k] = new Image();
+        preloaded[k].src = avatars[k];
+    });
+
+    const ws = new WebSocket('ws://localhost:8080');
+    ws.onmessage = event => {
+        try {
+            const data = JSON.parse(event.data);
+            if (data.id === userId) {
+                const mapped = mapStatus(data.status);
+                if(mapped === 'headphones'){
+                    img.classList.add('hidden'); // ซ่อนภาพถ้าไม่ได้อยู่ห้อง
+                } else {
+                    img.classList.remove('hidden'); // แสดงภาพ
+                    img.src = preloaded[mapped]?.src || avatars[mapped] || defaultAvatars[mapped];
+                }
+            }
+        } catch(e) {
+            console.error('ws message error', e);
+        }
+    };
+
+    // default image on load
+    img.src = avatars['not-speaking'] || defaultAvatars['not-speaking'];
+})();
+</script>
+</body>
+</html>

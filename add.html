@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Discord Overlay - All Users</title>
+<style>
+html, body {
+    margin:0;
+    padding:0;
+    background: transparent;
+    overflow: hidden;
+    width: 100%;
+    height: 100%;
+}
+
+#members {
+    position: absolute;
+    bottom: 0; /* ชิดด้านล่าง */
+    left: 0;
+    right: 0;
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 10px;
+    justify-items: center;
+}
+
+.member img {
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    object-fit: contain;
+    transition: opacity 0.3s ease, transform 0.2s ease;
+    opacity: 1;
+}
+</style>
+
+</head>
+<body>
+
+<div id="members"></div>
+
+<script>
+const defaultAvatars = {
+    speaking: 'icons/speaking.png',
+    'not-speaking': 'icons/not-speaking.png',
+    'mic-off': 'icons/mic-off.png',
+    headphones: 'icons/headphones.png'
+};
+
+const membersContainer = document.getElementById('members');
+const membersMap = new Map();
+
+function mapStatus(status) {
+    if (status === 'speaking') return 'speaking';
+    if (status === 'mic-off') return 'mic-off';
+    if (status === 'headphones') return 'headphones';
+    return 'not-speaking';
+}
+
+// โหลดสมาชิกทุกคน
+async function loadMembers() {
+    try {
+        const res = await fetch('/members');
+        const data = await res.json();
+
+        if (!data.members) return;
+
+        for (const member of data.members) {
+            let avatarUrl = defaultAvatars['not-speaking'];
+            try {
+                const avatarRes = await fetch(`/avatars/${member.id}`);
+                if (avatarRes.ok) {
+                    const avatarJson = await avatarRes.json();
+                    avatarUrl = avatarJson['not-speaking'] || defaultAvatars['not-speaking'];
+                }
+            } catch(e){}
+
+            if (!membersMap.has(member.id)) {
+                const img = document.createElement('img');
+                img.src = avatarUrl;
+                img.alt = member.username;
+                membersContainer.appendChild(img);
+
+                membersMap.set(member.id, { img });
+            }
+        }
+    } catch(err) {
+        console.error('Load members error:', err);
+    }
+}
+
+// WebSocket อัปเดตสถานะ realtime
+function setupWebSocket() {
+    const ws = new WebSocket('ws://localhost:8080');
+    ws.onmessage = (event) => {
+        try {
+            const data = JSON.parse(event.data);
+            if (membersMap.has(data.id)) {
+                const { img } = membersMap.get(data.id);
+                const mapped = mapStatus(data.status);
+                if (mapped === 'headphones') {
+                    img.style.opacity = 0; // ซ่อนถ้าออกจาก VC
+                } else {
+                    img.style.opacity = 1;
+                    fetch(`/avatars/${data.id}`).then(r=>r.json()).then(json=>{
+                        img.src = json[mapped] || defaultAvatars[mapped];
+                    }).catch(()=>{ img.src = defaultAvatars[mapped]; });
+                }
+            }
+        } catch(e){ console.error(e); }
+    };
+}
+
+loadMembers();
+setInterval(loadMembers, 2000); // refresh ทุก 2 วินาที
+setupWebSocket();
+</script>
+
+</body>
+</html>

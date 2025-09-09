@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>MINT#3021 - MINT Overlays</title>
+<style>
+body {
+    font-family: Arial, sans-serif;
+    background-color: #1e1e1e;
+    color: #fff;
+    margin: 0;
+    padding: 0;
+}
+.header {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #222;
+    padding: 10px 20px;
+    position: relative;
+}
+.user-info {
+    position: absolute;
+    left: 20px;
+    display: flex;
+    align-items: center;
+}
+.user-info img {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    margin-right: 10px;
+}
+.user-info span {
+    font-weight: bold;
+    font-size: 16px;
+}
+.navbar {
+    display: flex;
+    justify-content: center;
+}
+.navbar a {
+    color: #fff;
+    text-decoration: none;
+    padding: 10px 20px;
+    margin: 0 10px;
+    border-radius: 5px;
+    transition: background-color 0.3s;
+}
+.navbar a:hover,
+.navbar a.active {
+    background-color: #00ffff;
+    color: #000;
+}
+.content {
+    padding: 20px;
+}
+h1 {
+    color: #00ffff;
+    margin-bottom: 20px;
+}
+#top-bar {
+    margin-bottom: 20px;
+}
+#search {
+    width: 300px;
+    padding: 8px 10px 8px 30px;
+    border-radius: 5px;
+    border: 1px solid #444;
+    background: #1e1e1e url('https://cdn-icons-png.flaticon.com/512/622/622669.png') no-repeat 8px center;
+    background-size: 16px 16px;
+    color: #fff;
+}
+
+/* Status Zones */
+.status-zone {
+    margin-bottom: 30px;
+    border: 1px solid #444;
+    border-radius: 10px;
+    padding: 10px;
+    background-color: #2a2a2a;
+}
+.status-zone h3 {
+    margin: 0 0 10px 0;
+    color: #00ffff;
+    font-size: 18px;
+    border-bottom: 1px solid #444;
+    padding-bottom: 5px;
+}
+
+/* Members grid */
+.members-list {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    grid-auto-rows: 110px;
+    gap: 10px;
+}
+.member {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    border: 2px solid #444;
+    border-radius: 10px;
+    background-color: #1f1f1f;
+    padding: 5px;
+    position: relative;
+    transition: transform 0.2s, border-color 0.2s;
+}
+.member:hover {
+    transform: translateY(-5px);
+    border-color: #00ff00;
+}
+.member img {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    margin-bottom: 5px;
+}
+.status-badge {
+    position: absolute;
+    bottom: 8px;
+    right: 8px;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 2px solid #1f1f1f;
+}
+.online { background-color: #43b581; }
+.idle { background-color: #faa61a; }
+.dnd { background-color: #f04747; }
+.offline { background-color: #747f8d; }
+
+/* Pagination */
+.pagination {
+    margin-top: 10px;
+    display: flex;
+    justify-content: center;
+    gap: 5px;
+}
+.page-btn {
+    padding: 5px 12px;
+    cursor: pointer;
+    border: none;
+    border-radius: 5px;
+    background: #444;
+    color: #fff;
+    transition: 0.2s;
+}
+.page-btn:hover {
+    background: #00ffff;
+    color: #000;
+}
+.page-btn.active {
+    background: #00ff00;
+    color: #000;
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+    <div class="user-info">
+        <img src="https://i.pinimg.com/736x/f8/f0/0f/f8f00f81397dfdd4c0b2cadbd4172166.jpg" alt="Avatar">
+        <span>MINT#3021</span>
+    </div>
+    <div class="navbar">
+        <a href="index.html">Library</a>
+        <a href="overlay.html" class="active">Overlays</a>
+        <a href="setting.html">Setting</a>
+    </div>
+</div>
+
+<div class="content">
+    <h1>MINT Overlays</h1>
+    <div id="top-bar">
+        <input type="text" id="search" placeholder="Search members...">
+    </div>
+
+    <!-- Status Zones -->
+    <div class="status-zone" id="zone-online">
+        <h3>Online</h3>
+        <div class="members-list"></div>
+        <div class="pagination" id="pagination-online"></div>
+    </div>
+    <div class="status-zone" id="zone-idle">
+        <h3>Idle</h3>
+        <div class="members-list"></div>
+        <div class="pagination" id="pagination-idle"></div>
+    </div>
+    <div class="status-zone" id="zone-dnd">
+        <h3>DND</h3>
+        <div class="members-list"></div>
+        <div class="pagination" id="pagination-dnd"></div>
+    </div>
+    <div class="status-zone" id="zone-offline">
+        <h3>Offline</h3>
+        <div class="members-list"></div>
+        <div class="pagination" id="pagination-offline"></div>
+    </div>
+</div>
+
+<script>
+let members = [];
+const perPage = 28; // 7*4
+let currentPage = { online:1, idle:1, dnd:1, offline:1 };
+
+async function loadMembers() {
+    try {
+        const res = await fetch('/all-members');
+        const data = await res.json();
+        members = data.members;
+        renderZones();
+    } catch(err) {
+        console.error('Cannot load members:', err);
+    }
+}
+
+function renderZones(filter='') {
+    const zones = {
+        online: { list: document.querySelector('#zone-online .members-list'), pagination: document.querySelector('#pagination-online') },
+        idle: { list: document.querySelector('#zone-idle .members-list'), pagination: document.querySelector('#pagination-idle') },
+        dnd: { list: document.querySelector('#zone-dnd .members-list'), pagination: document.querySelector('#pagination-dnd') },
+        offline: { list: document.querySelector('#zone-offline .members-list'), pagination: document.querySelector('#pagination-offline') }
+    };
+
+    Object.keys(zones).forEach(status => {
+        const {list, pagination} = zones[status];
+        list.innerHTML = '';
+        const filtered = members.filter(m => m.status === status && m.username.toLowerCase().includes(filter.toLowerCase()));
+        const totalPages = Math.ceil(filtered.length / perPage);
+        if(currentPage[status] > totalPages) currentPage[status] = totalPages || 1;
+        const start = (currentPage[status]-1) * perPage;
+        const end = start + perPage;
+        filtered.slice(start, end).forEach(m => {
+            const div = document.createElement('div');
+            div.className = 'member';
+            div.innerHTML = `<img src="${m.avatar}" alt="${m.username}"><span>${m.username}</span><div class="status-badge ${m.status}"></div>`;
+            div.onclick = ()=>window.location.href=`status.html?userId=${m.id}`;
+            list.appendChild(div);
+        });
+
+        // Pagination buttons
+        pagination.innerHTML = '';
+        if(totalPages>1){
+            const prev = document.createElement('button');
+            prev.textContent='Prev';
+            prev.className='page-btn';
+            prev.disabled = currentPage[status] === 1;
+            prev.onclick = ()=>{ currentPage[status]--; renderZones(filter); };
+            pagination.appendChild(prev);
+
+            for(let i=1;i<=totalPages;i++){
+                const btn = document.createElement('button');
+                btn.textContent=i;
+                btn.className='page-btn'+(i===currentPage[status]?' active':'');
+                btn.onclick=()=>{ currentPage[status]=i; renderZones(filter); };
+                pagination.appendChild(btn);
+            }
+
+            const next = document.createElement('button');
+            next.textContent='Next';
+            next.className='page-btn';
+            next.disabled = currentPage[status] === totalPages;
+            next.onclick = ()=>{ currentPage[status]++; renderZones(filter); };
+            pagination.appendChild(next);
+        }
+    });
+}
+
+document.getElementById('search').addEventListener('input', e=>{
+    renderZones(e.target.value);
+});
+
+loadMembers();
+</script>
+
+</body>
+</html>
