@@ -19,7 +19,7 @@ img {
     width: auto;
     height: auto;
     object-fit: contain;
-    transition: opacity 0.3s ease;
+    transition: opacity 0.3s ease; /* เพิ่มความสมูท */
     opacity: 1;
 }
 .hidden { opacity: 0; }
@@ -77,19 +77,19 @@ const img = document.getElementById('status-avatar');
         preloaded[k].src = avatars[k];
     });
 
-    // ใช้ WebSocket domain จริง
-    const ws = new WebSocket('wss://' + window.location.host + '/ws');
+    // ใช้ WebSocket แบบ dynamic ให้รองรับ localhost และ server จริง
+    const wsProtocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+    const ws = new WebSocket(`${wsProtocol}://${window.location.host}`);
 
-    ws.onopen = () => console.log('WebSocket connected');
     ws.onmessage = event => {
         try {
             const data = JSON.parse(event.data);
             if (data.id === userId) {
                 const mapped = mapStatus(data.status);
                 if(mapped === 'headphones'){
-                    img.classList.add('hidden');
+                    img.classList.add('hidden'); // ซ่อนภาพถ้าไม่ได้อยู่ห้อง
                 } else {
-                    img.classList.remove('hidden');
+                    img.classList.remove('hidden'); // แสดงภาพ
                     img.src = preloaded[mapped]?.src || avatars[mapped] || defaultAvatars[mapped];
                 }
             }
@@ -97,8 +97,6 @@ const img = document.getElementById('status-avatar');
             console.error('ws message error', e);
         }
     };
-
-    ws.onclose = () => console.log('WebSocket disconnected');
 
     // default image on load
     img.src = avatars['not-speaking'] || defaultAvatars['not-speaking'];
