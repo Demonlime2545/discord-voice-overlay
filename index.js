@@ -120,7 +120,7 @@ app.get('/my-uploads', (req, res) => {
 // ============================
 // WebSocket
 // ============================
-const wss = new WebSocket.Server({ port: 8080 });
+// const ws = new WebSocket('wss://discord-voice-overlay.onrender.com/ws');
 function broadcast(data) {
     wss.clients.forEach(ws => {
         if (ws.readyState === ws.OPEN) ws.send(JSON.stringify(data));
